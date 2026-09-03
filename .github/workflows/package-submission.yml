@@ -9,16 +9,16 @@ permissions:
   contents: write
 
 concurrency:
-  group: forkroom-release-v1.0.1
+  group: forkroom-release-v1.0.2
   cancel-in-progress: true
 
 jobs:
   package:
-    name: Verify, package, and release v1.0.1
+    name: Verify, package, and release v1.0.2
     runs-on: ubuntu-24.04
     env:
-      RELEASE_TAG: v1.0.1
-      RELEASE_NAME: ForkRoom-WebMCP-Submission-v1.0.1
+      RELEASE_TAG: v1.0.2
+      RELEASE_NAME: ForkRoom-WebMCP-Submission-v1.0.2
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
@@ -72,7 +72,7 @@ jobs:
             printf '%s\n' '- Live fallback: https://raw.githack.com/streetquant/forkroom-webmcp/live/index.html'
             printf '%s\n' '- Demo video: https://drive.google.com/file/d/1SHYTAq-y0NPZjoi5L30PPboSveiUsm_2/view'
             printf '%s\n' '- WebMCP tools: 16'
-            printf '%s\n' '- Deterministic tests: 25'
+            printf '%s\n' '- Deterministic tests: 26'
             printf '%s\n' '- Authority boundary: agents may stage; only a visible human action may approve or reject'
             printf -- '- Built by workflow: %s / run %s\n' "$GITHUB_WORKFLOW" "$GITHUB_RUN_ID"
             printf -- '- Built at: %s\n\n' "$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
@@ -121,10 +121,10 @@ jobs:
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v6
         with:
-          name: forkroom-submission-v1.0.1
+          name: forkroom-submission-v1.0.2
           path: |
-            ${{ env.OUTPUT_ROOT }}/ForkRoom-WebMCP-Submission-v1.0.1.zip
-            ${{ env.OUTPUT_ROOT }}/ForkRoom-WebMCP-Submission-v1.0.1.zip.sha256
+            ${{ env.OUTPUT_ROOT }}/ForkRoom-WebMCP-Submission-v1.0.2.zip
+            ${{ env.OUTPUT_ROOT }}/ForkRoom-WebMCP-Submission-v1.0.2.zip.sha256
             ${{ env.OUTPUT_ROOT }}/ForkRoom-SUBMIT-NOW.md
             ${{ env.OUTPUT_ROOT }}/ForkRoom-JUDGE-CARD.md
             ${{ env.OUTPUT_ROOT }}/ForkRoom-VERIFICATION.md
@@ -152,7 +152,7 @@ jobs:
           else
             gh release create "$RELEASE_TAG" \
               --target "$GITHUB_SHA" \
-              --title 'ForkRoom v1.0.1 — verified WebMCP Challenge package' \
+              --title 'ForkRoom v1.0.2 — cross-version WebMCP compatibility' \
               --notes-file docs/RELEASE_NOTES.md \
               "$BUNDLE_PATH" \
               "$CHECKSUM_PATH" \
