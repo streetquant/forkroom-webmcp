@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it } from 'vitest'
 import App from './App'
 
@@ -9,12 +9,16 @@ beforeEach(() => {
   })
 })
 
+function workspaceNavigation() {
+  return within(screen.getByRole('navigation', { name: 'Decision workspace views' }))
+}
+
 describe('ForkRoom product experience', () => {
   it('renders the complete seeded decision workspace', async () => {
     render(<App />)
 
     expect(screen.getByText('ForkRoom')).toBeInTheDocument()
-    expect(screen.getByText(/How should Harbor City spend/)).toBeInTheDocument()
+    expect(screen.getAllByText(/How should Harbor City spend/).length).toBeGreaterThanOrEqual(2)
     expect(screen.getAllByRole('button', { name: /Cooling Commons/i }).length).toBeGreaterThan(0)
     expect(screen.getByRole('main')).toBeInTheDocument()
 
@@ -25,21 +29,22 @@ describe('ForkRoom product experience', () => {
 
   it('moves between map, matrix, futures, and audit views through the human UI', () => {
     render(<App />)
+    const navigation = workspaceNavigation()
 
-    fireEvent.click(screen.getByRole('button', { name: /Matrix Expose value judgments/i }))
+    fireEvent.click(navigation.getByRole('button', { name: /^Matrix/ }))
     expect(screen.getByRole('heading', { name: 'Decision matrix' })).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: /Futures Stress-test uncertainty/i }))
+    fireEvent.click(navigation.getByRole('button', { name: /^Futures/ }))
     expect(screen.getByRole('heading', { name: 'Possible futures' })).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: /Audit Review every change/i }))
+    fireEvent.click(navigation.getByRole('button', { name: /^Audit/ }))
     expect(screen.getByRole('heading', { name: 'Decision ledger' })).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: /Map See the whole choice/i }))
+    fireEvent.click(navigation.getByRole('button', { name: /^Map/ }))
     expect(screen.getByRole('heading', { name: /leads by/i })).toBeInTheDocument()
   })
 
-  it('shows the protocol design and all tool categories in the visible interface', async () => {
+  it('shows the protocol design and all tool categories in the visible interface', () => {
     render(<App />)
 
     fireEvent.click(screen.getByRole('button', { name: /16 tools ready/i }))
@@ -54,7 +59,7 @@ describe('ForkRoom product experience', () => {
 
   it('persists a human value change in browser-local state', async () => {
     render(<App />)
-    fireEvent.click(screen.getByRole('button', { name: /Matrix Expose value judgments/i }))
+    fireEvent.click(workspaceNavigation().getByRole('button', { name: /^Matrix/ }))
 
     const equityWeight = screen.getByRole('slider', { name: 'Weight for Equity' })
     fireEvent.change(equityWeight, { target: { value: '40' } })
