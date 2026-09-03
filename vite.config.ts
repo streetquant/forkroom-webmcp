@@ -8,7 +8,10 @@ const securityHeaders = {
   'X-Content-Type-Options': 'nosniff',
 }
 
+const deploymentBase = process.env.VITE_BASE_PATH?.trim() || '/'
+
 export default defineConfig({
+  base: deploymentBase,
   plugins: [react()],
   server: {
     host: '127.0.0.1',
