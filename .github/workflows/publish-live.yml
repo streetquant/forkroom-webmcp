@@ -45,13 +45,20 @@ jobs:
           VITE_BASE_PATH: ./
         run: npm run build
 
-      - name: Verify portable artifact
+      - name: Build self-contained judge artifact
+        run: node scripts/build-standalone.mjs
+
+      - name: Verify portable artifacts
         run: |
           test -s dist/index.html
+          test -s dist/standalone.html
           test -s dist/favicon.svg
           grep -q 'src="./assets/' dist/index.html
           grep -q 'href="./assets/' dist/index.html
+          grep -q 'data-forkroom-bundle="javascript"' dist/standalone.html
+          grep -q 'data-forkroom-bundle="css"' dist/standalone.html
           grep -R -q 'registerTool' dist/assets/*.js
+          grep -q 'registerTool' dist/standalone.html
           test -s dist/.well-known/webmcp.json
           test -s dist/llms.txt
 
