@@ -70,4 +70,28 @@ describe('ForkRoom product experience', () => {
       expect(stored.revision).toBeGreaterThan(1)
     })
   })
+
+  it('runs the judge demo through real tool handlers and preserves the approval boundary', async () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Judge demo' }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Decision ledger' })).toBeInTheDocument()
+    }, { timeout: 3_000 })
+
+    await waitFor(() => {
+      const stored = JSON.parse(localStorage.getItem('forkroom:webmcp:decision:v1') ?? '{}')
+      const proposal = stored.proposals.find(
+        (candidate: { kind: string; payload: { assumption_id?: string } }) =>
+          candidate.kind === 'assumption-challenge' && candidate.payload.assumption_id === 'matching',
+      )
+      const assumption = stored.assumptions.find((candidate: { id: string }) => candidate.id === 'matching')
+      expect(proposal?.status).toBe('pending')
+      expect(assumption?.challenged).toBe(false)
+    }, { timeout: 3_000 })
+
+    expect(screen.getByText('challenge_assumption')).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: /Approve/i }).length).toBeGreaterThan(0)
+  })
 })

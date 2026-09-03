@@ -56,6 +56,12 @@ function activityId(): string {
   return globalThis.crypto?.randomUUID?.() ?? `activity-${Date.now()}-${Math.random().toString(36).slice(2)}`
 }
 
+async function executeForkRoomTool(name: string, input: Record<string, unknown> = {}): Promise<unknown> {
+  const developerSurface = window.__FORKROOM_DEVTOOLS__
+  if (!developerSurface) throw new Error('ForkRoom tools are still starting. Try the demo again.')
+  return developerSurface.execute(name, input)
+}
+
 function App() {
   const [state, setState] = useState<DecisionState>(loadInitialState)
   const stateRef = useRef(state)
@@ -265,45 +271,59 @@ function App() {
     if (demoPhase > 0) return
     demoTimersRef.current.forEach((timer) => window.clearTimeout(timer))
     setDemoPhase(1)
-    navigate('futures')
+
+    void (async () => {
+      try {
+        await executeForkRoomTool('forkroom_inspect_decision', { detail: 'analysis' })
+        await executeForkRoomTool('forkroom_focus_view', { view: 'futures' })
+      } catch (error) {
+        navigate('futures')
+        notify(error instanceof Error ? error.message : 'Could not start the tool-guided demo.', 'warning')
+      }
+    })()
 
     const phaseTwo = window.setTimeout(() => {
       setDemoPhase(2)
-      const duplicate = stateRef.current.proposals.some(
-        (proposal) => proposal.status === 'pending' && proposal.payload.demo_marker === 'matching-funds-challenge',
-      )
-      if (!duplicate) {
-        stageProposal({
-          kind: 'assumption-challenge',
-          title: 'Challenge assumption · matching funds arrive on time',
-          rationale:
-            'The grid option is highly exposed to a funding event with only 42% confidence; testing this dependency could change the preferred portfolio.',
-          payload: {
-            assumption_id: 'matching',
-            counterpoint:
-              'The latest grant cycle slipped twice, so construction invoices may arrive before reimbursement and force scope reduction.',
-            revised_confidence: 28,
-            previous_confidence: 42,
-            test:
-              'Ask the grants office for a written disbursement milestone; pre-authorize a no-match fallback before procurement.',
-            demo_marker: 'matching-funds-challenge',
-          },
-        })
-      }
+      void (async () => {
+        try {
+          await executeForkRoomTool('forkroom_find_fragile_assumptions', { limit: 1 })
+          const duplicate = stateRef.current.proposals.some(
+            (proposal) =>
+              proposal.status === 'pending' &&
+              proposal.kind === 'assumption-challenge' &&
+              proposal.payload.assumption_id === 'matching',
+          )
+          if (!duplicate) {
+            await executeForkRoomTool('forkroom_challenge_assumption', {
+              assumption_id: 'matching',
+              counterpoint:
+                'The latest grant cycle slipped twice, so construction invoices may arrive before reimbursement and force scope reduction.',
+              revised_confidence: 28,
+              test:
+                'Ask the grants office for a written disbursement milestone; pre-authorize a no-match fallback before procurement.',
+              rationale:
+                'The grid option is highly exposed to a funding event with only 42% confidence; testing this dependency could change the preferred portfolio.',
+            })
+          }
+        } catch (error) {
+          setDemoPhase(0)
+          notify(error instanceof Error ? error.message : 'The agent tool sequence could not complete.', 'warning')
+        }
+      })()
     }, 650)
 
     const phaseThree = window.setTimeout(() => {
       setDemoPhase(3)
-      navigate('audit')
+      void executeForkRoomTool('forkroom_focus_view', { view: 'audit' }).catch(() => navigate('audit'))
     }, 1450)
 
     const finish = window.setTimeout(() => {
       setDemoPhase(0)
-      notify('Demo complete: inspect the proposal, then approve or reject it.', 'success')
+      notify('Demo complete: the real WebMCP tool path staged a proposal for your judgment.', 'success')
     }, 3300)
 
     demoTimersRef.current = [phaseTwo, phaseThree, finish]
-  }, [demoPhase, navigate, notify, stageProposal])
+  }, [demoPhase, navigate, notify])
 
   const selectedOption = state.options.find((option) => option.id === state.selectedOptionId)
   const topRisk = analysis.weakAssumptions[0]
