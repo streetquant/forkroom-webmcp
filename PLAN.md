@@ -13,7 +13,7 @@ ForkRoom is a live decision multiverse for choices that cannot fit in a chat. A 
 | Imperative WebMCP tool surface | Complete | 16 tools in `src/webmcp/protocol.ts` |
 | Human approval boundary | Complete | No approval tool; reducer and protocol tests |
 | Persistence, undo, import/export, guided demo | Complete | Product integration tests and recorded walkthrough |
-| Static and runtime verification | Complete | Contract audit, 25 tests, lint, build |
+| Static and runtime verification | Complete | Contract audit, 26 tests, lint, build |
 | Portable deployment | Complete | Verified `live` branch with `SOURCE_COMMIT` receipt |
 | Self-contained judge artifact | Complete | VM syntax parse and executable JSDOM boot gate |
 | Adversarial review | Complete | `docs/ADVERSARIAL_REVIEW.md` |
@@ -67,7 +67,7 @@ where `ρ ∈ [0,1]` is controlled by the human's caution slider. ForkRoom also 
 
 - [x] Public repository with MIT license.
 - [x] Working live artifact requiring no account or API key.
-- [x] Real `document.modelContext.registerTool(...)` implementation.
+- [x] Real `document.modelContext.registerTool(...)` implementation with a deprecated `navigator.modelContext` compatibility fallback.
 - [x] Exactly 16 unique imperative tools.
 - [x] All agent-authored substantive changes require explicit human approval.
 - [x] No WebMCP self-approval or rejection capability.

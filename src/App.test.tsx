@@ -7,6 +7,10 @@ beforeEach(() => {
     configurable: true,
     value: undefined,
   })
+  Object.defineProperty(navigator, 'modelContext', {
+    configurable: true,
+    value: undefined,
+  })
 })
 
 function workspaceNavigation() {

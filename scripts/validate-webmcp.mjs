@@ -29,6 +29,10 @@ invariant(readOnlyModes === 8, `eight analytical tools are marked read-only (fou
 invariant(proposalModes === 7, `seven tools stage reviewable proposals (found ${proposalModes})`)
 invariant(navigationModes === 1, `one tool changes presentation only (found ${navigationModes})`)
 invariant(protocol.includes('modelContext.registerTool(tool'), 'production code invokes the imperative registerTool API')
+invariant(
+  protocol.includes('document.modelContext ?? navigator.modelContext'),
+  'current document API is preferred with a legacy navigator fallback',
+)
 invariant(protocol.includes('additionalProperties: false'), 'root object schemas reject unknown properties')
 invariant(protocol.includes('readOnlyHint'), 'read-only annotation hints are emitted')
 invariant(protocol.includes('untrustedContentHint'), 'untrusted-content annotation hints are emitted')

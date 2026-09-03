@@ -57,6 +57,11 @@ declare global {
     readonly modelContext?: WebMcpModelContext
   }
 
+  interface Navigator {
+    /** Deprecated pre-Chromium-150 location retained for challenge-browser compatibility. */
+    readonly modelContext?: WebMcpModelContext
+  }
+
   interface Window {
     __FORKROOM_DEVTOOLS__?: ForkRoomDevTools
   }

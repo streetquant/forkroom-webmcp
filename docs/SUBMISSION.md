@@ -113,7 +113,7 @@ Because both the human UI and tools call the same domain logic, the agent acts o
 
 - React 19 and TypeScript
 - Vite production build
-- imperative `document.modelContext.registerTool(...)` integration
+- imperative `document.modelContext.registerTool(...)` integration with legacy `navigator.modelContext` fallback
 - 16 closed-schema, runtime-validated WebMCP tools
 - deterministic decision-analysis engine
 - pure reducer as canonical state-transition boundary
@@ -213,7 +213,7 @@ The creative unit is not the chatbot. It is the visible authority-preserving loo
 - Built transparent robust scoring, downside, regret, fragility, and rank-reversal analysis.
 - Created four polished, responsive decision views and a guided judge demo.
 - Added import/export, persistence, undo, attribution, and commitment guardrails.
-- Built a contract audit and 25 deterministic tests.
+- Built a contract audit and 26 deterministic tests.
 - Found and corrected real CI, deployment, string-substitution, and script-order defects.
 - Added a self-contained artifact that CI must parse, boot, and inspect for all 16 tools before publishing.
 - Produced a narrated, captioned, sub-one-minute demo video.
@@ -281,7 +281,7 @@ The published artifact is produced only after:
 
 - 16-tool static contract audit;
 - zero-warning lint;
-- 25 passing deterministic tests;
+- 26 passing deterministic tests;
 - TypeScript and Vite production build;
 - portable asset checks;
 - standalone JavaScript syntax parse;

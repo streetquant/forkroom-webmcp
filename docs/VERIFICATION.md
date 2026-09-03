@@ -12,7 +12,7 @@ This is a factual inventory of checks actually performed on ForkRoom. It disting
 | Verified live publication workflow | Latest **Publish live judge build** run must be green. |
 | WebMCP tool count | 16 |
 | Tool taxonomy | 8 read-only · 7 proposal · 1 navigation |
-| Deterministic tests | 25 passed across 4 files |
+| Deterministic tests | 26 passed across 4 files |
 | Lint | 0 warnings · 0 errors |
 | Package audit during `npm ci` | 0 vulnerabilities reported by npm |
 | Production JavaScript | approximately 275.67 kB / 84.33 kB gzip in verified build |
@@ -54,6 +54,10 @@ The audit requires:
 - a detectable open-source license.
 
 The script prints every passed invariant and the full registered tool list.
+
+### Cross-version API compatibility
+
+ForkRoom resolves the browser endpoint as `document.modelContext ?? navigator.modelContext`. The current document-scoped API always wins when both exist. A focused protocol test removes the document endpoint, supplies only the legacy navigator endpoint, and requires all 16 tools plus a fully registered status. The static audit also checks the exact current-first fallback expression.
 
 ### 2. Domain analysis tests
 

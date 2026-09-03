@@ -1172,7 +1172,7 @@ export function registerForkRoomTools(bridge: ForkRoomBridge): () => void {
   }
   window.__FORKROOM_DEVTOOLS__ = developerSurface
 
-  const modelContext = document.modelContext
+  const modelContext = document.modelContext ?? navigator.modelContext
   if (!modelContext) {
     bridge.onStatus({ supported: false, registered: 0, total: definitions.length })
   } else {

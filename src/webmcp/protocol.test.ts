@@ -54,6 +54,10 @@ afterEach(() => {
     configurable: true,
     value: undefined,
   })
+  Object.defineProperty(navigator, 'modelContext', {
+    configurable: true,
+    value: undefined,
+  })
   delete window.__FORKROOM_DEVTOOLS__
 })
 
@@ -84,6 +88,33 @@ describe('WebMCP protocol', () => {
 
     cleanup()
     expect(lifecycleSignals.every((signal) => signal.aborted)).toBe(true)
+  })
+
+  it('falls back to the legacy navigator location when the current document API is absent', async () => {
+    const registered: WebMcpToolDefinition[] = []
+    Object.defineProperty(document, 'modelContext', {
+      configurable: true,
+      value: undefined,
+    })
+    Object.defineProperty(navigator, 'modelContext', {
+      configurable: true,
+      value: {
+        registerTool: vi.fn(async (tool: WebMcpToolDefinition) => {
+          registered.push(tool)
+        }),
+      },
+    })
+    const harness = createHarness()
+
+    const cleanup = registerForkRoomTools(harness.bridge)
+    await vi.waitFor(() => expect(registered).toHaveLength(FORKROOM_TOOL_COUNT))
+
+    await vi.waitFor(() => expect(harness.statuses.at(-1)).toMatchObject({
+      supported: true,
+      registered: FORKROOM_TOOL_COUNT,
+      total: FORKROOM_TOOL_COUNT,
+    }))
+    cleanup()
   })
 
   it('keeps a development inspector available when the browser lacks WebMCP', () => {

@@ -120,7 +120,7 @@ For each issue, the team attempted to construct a counterexample, added a contro
 
 **Observed result:** Three UI tests failed in the first remote workflow despite domain and protocol tests passing.
 
-**Resolution:** Assertions were aligned with actual accessible names and ambiguous text was checked with an all-elements query. The corrected CI passed all 25 tests.
+**Resolution:** Assertions were aligned with actual accessible names and ambiguous text was checked with an all-elements query. The corrected CI passed all 26 tests.
 
 **Lesson:** Accessibility-tree behavior must be tested as rendered, not inferred from visual layout.
 
@@ -188,6 +188,14 @@ For each issue, the team attempted to construct a counterexample, added a contro
 
 **Status:** Accepted challenge limitation; clearly disclosed.
 
+### AR-21 · Browser API location drift
+
+**Attack/failure:** A judge opens ForkRoom in an earlier Chromium origin-trial or challenge-browser build that still exposes `navigator.modelContext`; the UI works, but no native tools register because the app probes only the newer document-scoped API.
+
+**Resolution:** Registration now resolves `document.modelContext ?? navigator.modelContext`, preserving the current API while supporting the deprecated location. A protocol test requires all 16 tools through the legacy-only path, and the static contract audit verifies the current-first ordering.
+
+**Status:** Closed; tested.
+
 ## Remaining model criticism
 
 ### Alternative ontology
@@ -220,7 +228,7 @@ The challenge release is considered ready when all of the following hold simulta
 
 - 16-tool contract audit passes;
 - lint reports zero warnings and errors;
-- all 25 deterministic tests pass;
+- all 26 deterministic tests pass;
 - production build completes;
 - portable asset checks pass;
 - standalone JavaScript parses;

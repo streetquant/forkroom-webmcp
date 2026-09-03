@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "description": "A live decision multiverse where people and browser agents construct, challenge, and stress-test consequential choices together.",
   "runtimeApi": "document.modelContext",
+  "legacyRuntimeFallback": "navigator.modelContext",
   "source": "https://github.com/streetquant/forkroom-webmcp",
   "live": "https://raw.githack.com/streetquant/forkroom-webmcp/live/index.html",
   "authorityBoundary": {

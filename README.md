@@ -177,7 +177,7 @@ await window.__FORKROOM_DEVTOOLS__.execute('forkroom_inspect_decision', {
 })
 ```
 
-In a WebMCP-capable browser, the page registers the same definitions through `document.modelContext.registerTool(...)`.
+In a WebMCP-capable browser, the page prefers `document.modelContext.registerTool(...)` and falls back to the deprecated `navigator.modelContext` location used by earlier challenge-browser builds.
 
 To build the self-contained judge artifact:
 

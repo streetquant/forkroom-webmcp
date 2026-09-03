@@ -69,7 +69,7 @@ flowchart TB
     Reducer --> Ledger
   end
 
-  Agent[Browser agent] -->|document.modelContext| Bridge
+  Agent[Browser agent] -->|document.modelContext; legacy navigator fallback| Bridge
   Human[Human decision owner] --> UI
   Bridge -->|proposal receipt| Agent
   Ledger --> UI
