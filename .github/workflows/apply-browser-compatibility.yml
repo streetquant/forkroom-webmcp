@@ -37,6 +37,30 @@ jobs:
       - name: Apply deterministic migration
         run: python scripts/apply-browser-compatibility.py
 
+      - name: Make async registration receipt assertion deterministic
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('src/webmcp/protocol.test.ts')
+          text = path.read_text(encoding='utf-8')
+          old = """    expect(harness.statuses.at(-1)).toMatchObject({
+                supported: true,
+                registered: FORKROOM_TOOL_COUNT,
+                total: FORKROOM_TOOL_COUNT,
+              })
+          """
+          new = """    await vi.waitFor(() => expect(harness.statuses.at(-1)).toMatchObject({
+                supported: true,
+                registered: FORKROOM_TOOL_COUNT,
+                total: FORKROOM_TOOL_COUNT,
+              }))
+          """
+          if text.count(old) != 1:
+              raise SystemExit(f'expected one status assertion anchor, found {text.count(old)}')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+
       - name: Verify transformed application and release
         env:
           VITE_BASE_PATH: ./
