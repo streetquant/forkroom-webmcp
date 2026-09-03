@@ -1,0 +1,62 @@
+name: Verify ForkRoom
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Types · tests · WebMCP contract · build
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install exact dependencies
+        run: npm ci
+
+      - name: Audit WebMCP contract
+        run: node scripts/validate-webmcp.mjs
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Run deterministic tests
+        run: npm test -- --reporter=verbose
+
+      - name: Build production application
+        run: npm run build
+
+      - name: Assert production entry points
+        shell: bash
+        run: |
+          test -s dist/index.html
+          test -s dist/favicon.svg
+          grep -R --quiet "registerTool" dist/assets/*.js
+          grep -R --quiet "forkroom_inspect_decision" dist/assets/*.js
+
+      - name: Upload verified production build
+        uses: actions/upload-artifact@v6
+        with:
+          name: forkroom-production-${{ github.sha }}
+          path: dist
+          if-no-files-found: error
+          retention-days: 14
