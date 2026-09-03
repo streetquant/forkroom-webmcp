@@ -48,6 +48,9 @@ jobs:
       - name: Build self-contained judge artifact
         run: node scripts/build-standalone.mjs
 
+      - name: Boot standalone artifact and discover tools
+        run: node scripts/smoke-standalone.mjs
+
       - name: Verify portable artifacts
         run: |
           test -s dist/index.html

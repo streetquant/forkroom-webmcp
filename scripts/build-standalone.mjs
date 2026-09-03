@@ -1,5 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
+import { Script } from 'node:vm'
 import { fileURLToPath } from 'node:url'
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -23,14 +24,21 @@ const [css, javascript] = await Promise.all([
 
 const escapedJavascript = javascript.replace(/<\/script/gi, '<\\/script')
 const standalone = html
-  .replace(stylesheetMatch[0], `<style data-forkroom-bundle="css">${css}</style>`)
-  .replace(scriptMatch[0], `<script data-forkroom-bundle="javascript">${escapedJavascript}</script>`)
+  .replace(stylesheetMatch[0], () => `<style data-forkroom-bundle="css">${css}</style>`)
+  .replace(scriptMatch[0], () => `<script data-forkroom-bundle="javascript">${escapedJavascript}</script>`)
   .replace(/<link\s+rel="manifest"[^>]*>/i, '')
   .replace(/<link\s+rel="icon"[^>]*>/i, '')
   .replace(
     '</head>',
     '    <meta name="forkroom-build" content="standalone-v1" />\n  </head>',
   )
+
+const inlineScript = standalone.match(/<script\s+data-forkroom-bundle="javascript">([\s\S]*?)<\/script>/i)?.[1]
+if (!inlineScript) throw new Error('Could not recover the inlined JavaScript bundle.')
+if ((standalone.match(/<!doctype html>/gi) ?? []).length !== 1) {
+  throw new Error('Standalone document contains a duplicated or injected HTML document.')
+}
+new Script(inlineScript, { filename: 'forkroom-standalone-bundle.js' })
 
 if (!standalone.includes('registerTool') || !standalone.includes('forkroom_draft_commitment')) {
   throw new Error('Standalone build does not contain the verified WebMCP tool surface.')
