@@ -1,0 +1,154 @@
+name: Package ForkRoom submission
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: forkroom-release-v1
+  cancel-in-progress: true
+
+jobs:
+  package:
+    name: Verify, package, and release v1.0.0
+    runs-on: ubuntu-24.04
+    env:
+      RELEASE_TAG: v1.0.0
+      RELEASE_NAME: ForkRoom-WebMCP-Submission-v1.0.0
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install exact dependencies
+        run: npm ci
+
+      - name: Audit WebMCP contract
+        run: node scripts/validate-webmcp.mjs
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Run deterministic tests
+        run: npm test -- --reporter=verbose
+
+      - name: Build portable production application
+        env:
+          VITE_BASE_PATH: ./
+        run: npm run build
+
+      - name: Build and boot self-contained judge artifact
+        run: |
+          node scripts/build-standalone.mjs
+          node scripts/smoke-standalone.mjs
+
+      - name: Assemble reproducible submission bundle
+        run: |
+          set -euo pipefail
+          bundle_root="$RUNNER_TEMP/$RELEASE_NAME"
+          output_root="$RUNNER_TEMP/output"
+          mkdir -p "$bundle_root/source" "$bundle_root/build" "$output_root"
+
+          git archive --format=tar "$GITHUB_SHA" | tar -x -C "$bundle_root/source"
+          cp -a dist/. "$bundle_root/build/"
+
+          cat > "$bundle_root/MANIFEST.md" <<EOF
+          # ForkRoom WebMCP submission manifest
+
+          - Release: $RELEASE_TAG
+          - Source commit: $GITHUB_SHA
+          - Repository: https://github.com/streetquant/forkroom-webmcp
+          - Live preview: https://htmlpreview.github.io/?https://github.com/streetquant/forkroom-webmcp/blob/live/standalone.html
+          - Live fallback: https://raw.githack.com/streetquant/forkroom-webmcp/live/index.html
+          - Demo video: https://drive.google.com/file/d/1SHYTAq-y0NPZjoi5L30PPboSveiUsm_2/view
+          - WebMCP tools: 16
+          - Deterministic tests: 25
+          - Authority boundary: agents may stage; only a visible human action may approve or reject
+          - Built by workflow: $GITHUB_WORKFLOW / run $GITHUB_RUN_ID
+          - Built at: $(date -u +'%Y-%m-%dT%H:%M:%SZ')
+
+          The `source/` directory is the exact tagged repository tree. The `build/` directory is the verified portable production artifact and includes the self-contained `standalone.html`.
+          EOF
+
+          (
+            cd "$bundle_root"
+            find . -type f ! -name SHA256SUMS.txt -print0 \
+              | LC_ALL=C sort -z \
+              | xargs -0 sha256sum > SHA256SUMS.txt
+          )
+
+          (
+            cd "$(dirname "$bundle_root")"
+            zip -X -q -r "$output_root/$RELEASE_NAME.zip" "$RELEASE_NAME"
+          )
+          sha256sum "$output_root/$RELEASE_NAME.zip" > "$output_root/$RELEASE_NAME.zip.sha256"
+          cp docs/SUBMISSION.md "$output_root/ForkRoom-SUBMIT-NOW.md"
+          cp docs/JUDGE_CARD.md "$output_root/ForkRoom-JUDGE-CARD.md"
+          cp docs/VERIFICATION.md "$output_root/ForkRoom-VERIFICATION.md"
+
+          echo "BUNDLE_PATH=$output_root/$RELEASE_NAME.zip" >> "$GITHUB_ENV"
+          echo "CHECKSUM_PATH=$output_root/$RELEASE_NAME.zip.sha256" >> "$GITHUB_ENV"
+          echo "OUTPUT_ROOT=$output_root" >> "$GITHUB_ENV"
+
+      - name: Verify packaged bytes
+        run: |
+          set -euo pipefail
+          sha256sum --check "$CHECKSUM_PATH"
+          unzip -t "$BUNDLE_PATH"
+          unzip -p "$BUNDLE_PATH" "$RELEASE_NAME/build/standalone.html" | grep -q 'registerTool'
+          unzip -p "$BUNDLE_PATH" "$RELEASE_NAME/MANIFEST.md" | grep -q "$GITHUB_SHA"
+          unzip -p "$BUNDLE_PATH" "$RELEASE_NAME/SHA256SUMS.txt" | grep -q 'build/standalone.html'
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: forkroom-submission-v1.0.0
+          path: |
+            ${{ env.OUTPUT_ROOT }}/ForkRoom-WebMCP-Submission-v1.0.0.zip
+            ${{ env.OUTPUT_ROOT }}/ForkRoom-WebMCP-Submission-v1.0.0.zip.sha256
+            ${{ env.OUTPUT_ROOT }}/ForkRoom-SUBMIT-NOW.md
+            ${{ env.OUTPUT_ROOT }}/ForkRoom-JUDGE-CARD.md
+            ${{ env.OUTPUT_ROOT }}/ForkRoom-VERIFICATION.md
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Create or update immutable GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            release_target="$(gh release view "$RELEASE_TAG" --json targetCommitish --jq .targetCommitish)"
+            if [ "$release_target" != "$GITHUB_SHA" ]; then
+              echo "Release $RELEASE_TAG already targets $release_target, not $GITHUB_SHA." >&2
+              exit 1
+            fi
+            gh release upload "$RELEASE_TAG" \
+              "$BUNDLE_PATH" \
+              "$CHECKSUM_PATH" \
+              "$OUTPUT_ROOT/ForkRoom-SUBMIT-NOW.md" \
+              "$OUTPUT_ROOT/ForkRoom-JUDGE-CARD.md" \
+              "$OUTPUT_ROOT/ForkRoom-VERIFICATION.md" \
+              --clobber
+          else
+            gh release create "$RELEASE_TAG" \
+              --target "$GITHUB_SHA" \
+              --title 'ForkRoom v1.0.0 — WebMCP Challenge' \
+              --notes-file docs/RELEASE_NOTES.md \
+              "$BUNDLE_PATH" \
+              "$CHECKSUM_PATH" \
+              "$OUTPUT_ROOT/ForkRoom-SUBMIT-NOW.md" \
+              "$OUTPUT_ROOT/ForkRoom-JUDGE-CARD.md" \
+              "$OUTPUT_ROOT/ForkRoom-VERIFICATION.md"
+          fi
