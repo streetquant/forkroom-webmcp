@@ -6,13 +6,13 @@ This is a factual inventory of checks actually performed on ForkRoom. It disting
 
 | Item | Value |
 | --- | --- |
-| Verified source commit | `26a22c2be01405b64bdaf862b850e03a52803644` |
-| Live branch source receipt | `26a22c2be01405b64bdaf862b850e03a52803644` |
-| Standard verification workflow | Run `33771487027` — success |
-| Verified live publication workflow | Run `33771487073` — success |
+| Protocol-driven application commit | `27feefffa5e88e83aa256af96e1cb37453bfcc94` |
+| Live branch source receipt | Read `live/SOURCE_COMMIT`; publication rewrites it only after all gates pass. |
+| Standard verification workflow | Latest **Verify ForkRoom** run must be green. |
+| Verified live publication workflow | Latest **Publish live judge build** run must be green. |
 | WebMCP tool count | 16 |
 | Tool taxonomy | 8 read-only · 7 proposal · 1 navigation |
-| Deterministic tests | 24 passed across 4 files |
+| Deterministic tests | 25 passed across 4 files |
 | Lint | 0 warnings · 0 errors |
 | Package audit during `npm ci` | 0 vulnerabilities reported by npm |
 | Production JavaScript | approximately 275.67 kB / 84.33 kB gzip in verified build |
@@ -320,4 +320,4 @@ where:
 - \(S\): standalone syntax and runtime smoke pass;
 - \(P\): live publication succeeds with a matching source receipt.
 
-At the verified source commit listed above, every term was true.
+For every release commit, both workflows must be green and `live/SOURCE_COMMIT` must equal that release commit before the artifact is treated as current.

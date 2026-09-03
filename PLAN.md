@@ -13,7 +13,7 @@ ForkRoom is a live decision multiverse for choices that cannot fit in a chat. A 
 | Imperative WebMCP tool surface | Complete | 16 tools in `src/webmcp/protocol.ts` |
 | Human approval boundary | Complete | No approval tool; reducer and protocol tests |
 | Persistence, undo, import/export, guided demo | Complete | Product integration tests and recorded walkthrough |
-| Static and runtime verification | Complete | Contract audit, 24 tests, lint, build |
+| Static and runtime verification | Complete | Contract audit, 25 tests, lint, build |
 | Portable deployment | Complete | Verified `live` branch with `SOURCE_COMMIT` receipt |
 | Self-contained judge artifact | Complete | VM syntax parse and executable JSDOM boot gate |
 | Adversarial review | Complete | `docs/ADVERSARIAL_REVIEW.md` |

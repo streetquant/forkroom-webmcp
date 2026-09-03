@@ -120,7 +120,7 @@ For each issue, the team attempted to construct a counterexample, added a contro
 
 **Observed result:** Three UI tests failed in the first remote workflow despite domain and protocol tests passing.
 
-**Resolution:** Assertions were aligned with actual accessible names and ambiguous text was checked with an all-elements query. The corrected CI passed all 24 tests.
+**Resolution:** Assertions were aligned with actual accessible names and ambiguous text was checked with an all-elements query. The corrected CI passed all 25 tests.
 
 **Lesson:** Accessibility-tree behavior must be tested as rendered, not inferred from visual layout.
 
@@ -220,7 +220,7 @@ The challenge release is considered ready when all of the following hold simulta
 
 - 16-tool contract audit passes;
 - lint reports zero warnings and errors;
-- all 24 deterministic tests pass;
+- all 25 deterministic tests pass;
 - production build completes;
 - portable asset checks pass;
 - standalone JavaScript parses;
@@ -231,4 +231,4 @@ The challenge release is considered ready when all of the following hold simulta
 - demo video decodes fully and remains under three minutes;
 - repository documentation states residual risks and model limits.
 
-At commit `26a22c2be01405b64bdaf862b850e03a52803644`, the automated code and deployment gates above passed. Documentation and final packaging are maintained as subsequent main-branch commits and are themselves required to pass the unchanged verification workflows.
+At application commit `27feefffa5e88e83aa256af96e1cb37453bfcc94`, the Judge demo itself was upgraded to execute the real WebMCP handlers, and a 25th integration test proved the resulting challenge remains pending. Final release commits remain acceptable only when the unchanged verification and publication workflows both pass.
