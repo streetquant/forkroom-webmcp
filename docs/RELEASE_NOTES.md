@@ -1,8 +1,10 @@
-# ForkRoom v1.0.0 — WebMCP Challenge release
+# ForkRoom v1.0.1 — verified WebMCP Challenge package
 
 **See the future before you choose it.**
 
 ForkRoom is a live decision multiverse where humans own values and authority while agents inspect, compare, stress-test, navigate, and stage structured changes through 16 imperative WebMCP tools.
+
+This release supersedes `v1.0.0`. The application capability is unchanged; `v1.0.1` makes the external ZIP checksum portable and preserves the literal `source/`, `build/`, and `standalone.html` paths in the downloaded manifest. Both defects were found by independently downloading and checking the first release outside GitHub Actions.
 
 ## Judge paths
 
@@ -31,10 +33,11 @@ ForkRoom is a live decision multiverse where humans own values and authority whi
 - zero-warning lint
 - portable production build
 - self-contained artifact that must parse and boot with all 16 tools before publication
+- self-verifying release package with portable SHA-256 files
 
 ## Included release assets
 
-`ForkRoom-WebMCP-Submission-v1.0.0.zip` contains:
+`ForkRoom-WebMCP-Submission-v1.0.1.zip` contains:
 
 - complete source at the tagged commit;
 - the verified portable production build;
@@ -43,7 +46,11 @@ ForkRoom is a live decision multiverse where humans own values and authority whi
 - architecture, security, adversarial-review, verification, demo, judge, and submission documents;
 - a release manifest and per-file SHA-256 checksums.
 
-The accompanying `.sha256` file verifies the ZIP itself.
+The accompanying `.sha256` file can be checked from the download directory with:
+
+```bash
+sha256sum -c ForkRoom-WebMCP-Submission-v1.0.1.zip.sha256
+```
 
 ## Reproduce
 
