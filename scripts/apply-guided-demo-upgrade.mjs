@@ -129,30 +129,24 @@ const newDemo = `  const runGuidedDemo = useCallback(() => {
   }, [demoPhase, navigate, notify])
 `
 
-if (!app.includes(helperAnchor)) throw new Error('Could not locate the App helper anchor.')
-if (!app.includes(oldDemo)) throw new Error('Could not locate the original guided demo block.')
-app = app.replace(helperAnchor, helperReplacement).replace(oldDemo, newDemo)
+if (!app.includes('async function executeForkRoomTool(')) {
+  if (!app.includes(helperAnchor)) throw new Error('Could not locate the App helper anchor.')
+  app = app.replace(helperAnchor, helperReplacement)
+}
+if (!app.includes("await executeForkRoomTool('forkroom_find_fragile_assumptions'")) {
+  if (!app.includes(oldDemo)) throw new Error('Could not locate the original guided demo block.')
+  app = app.replace(oldDemo, newDemo)
+}
 await writeFile(appPath, app)
 
 let test = await readFile(testPath, 'utf8')
-const testAnchor = `  it('persists a human value change in browser-local state', async () => {
-    render(<App />)
-    fireEvent.click(screen.getByRole('button', { name: /MatrixExpose value judgments2/i }))
+const testName = 'runs the judge demo through real tool handlers and preserves the approval boundary'
+if (!test.includes(testName)) {
+  const closingIndex = test.lastIndexOf('\n})\n')
+  if (closingIndex < 0) throw new Error('Could not locate the App test-suite closing block.')
+  const newTest = `
 
-    const equityWeight = screen.getByRole('slider', { name: 'Weight for Equity' })
-    fireEvent.change(equityWeight, { target: { value: '40' } })
-
-    await waitFor(() => {
-      const stored = JSON.parse(localStorage.getItem('forkroom:webmcp:decision:v1') ?? '{}')
-      expect(stored.criteria.find((criterion: { id: string }) => criterion.id === 'equity').weight).toBe(40)
-      expect(stored.revision).toBeGreaterThan(1)
-    })
-  })
-`
-
-const newTest = `${testAnchor}
-
-  it('runs the judge demo through real tool handlers and preserves the approval boundary', async () => {
+  it('${testName}', async () => {
     render(<App />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Judge demo' }))
@@ -174,11 +168,9 @@ const newTest = `${testAnchor}
 
     expect(screen.getByText('challenge_assumption')).toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: /Approve/i }).length).toBeGreaterThan(0)
-  })
-`
-
-if (!test.includes(testAnchor)) throw new Error('Could not locate the App integration-test anchor.')
-test = test.replace(testAnchor, newTest)
+  })`
+  test = `${test.slice(0, closingIndex)}${newTest}${test.slice(closingIndex)}`
+}
 await writeFile(testPath, test)
 
 console.log('Upgraded Judge demo to the real WebMCP tool path and added an approval-boundary integration test.')
