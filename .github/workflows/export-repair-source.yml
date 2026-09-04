@@ -1,0 +1,55 @@
+name: Export verified repair source
+
+on:
+  push:
+    branches: [repair-public-links]
+    paths:
+      - .github/workflows/export-repair-source.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install exact dependencies
+        run: npm ci
+
+      - name: Verify current repository
+        run: |
+          node scripts/validate-webmcp.mjs
+          npm run lint
+          npm test -- --reporter=verbose
+          VITE_BASE_PATH=./ npm run build
+          node scripts/build-standalone.mjs
+          node scripts/smoke-standalone.mjs
+
+      - name: Package source and verified build
+        run: |
+          set -euo pipefail
+          mkdir -p export/source export/build
+          git archive --format=tar HEAD | tar -x -C export/source
+          cp -a dist/. export/build/
+          printf '%s\n' "$GITHUB_SHA" > export/SOURCE_COMMIT
+          (
+            cd export
+            find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum > SHA256SUMS.txt
+          )
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: forkroom-repair-source
+          path: export
+          if-no-files-found: error
+          retention-days: 7
