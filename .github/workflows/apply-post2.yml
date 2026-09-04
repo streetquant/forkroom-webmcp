@@ -1,0 +1,274 @@
+name: Apply and release ForkRoom post.2
+
+on:
+  push:
+    branches: [post-judging-v1.1.0-post.2]
+    paths:
+      - .post2/**
+      - .github/workflows/apply-post2.yml
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: forkroom-apply-post2
+  cancel-in-progress: true
+
+env:
+  RELEASE_TAG: v1.1.0-post.2
+  RELEASE_NAME: ForkRoom-v1.1.0-post.2
+  LIVE_BRANCH: post2-live
+
+jobs:
+  apply-verify-release:
+    name: Apply, verify, publish, probe, and release
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out migration branch
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Reconstruct and verify the candidate patch
+        run: |
+          set -euo pipefail
+          cat .post2/patch.xz.b64.part-* | base64 --decode | xz --decompress > "$RUNNER_TEMP/post2.patch"
+          expected=$(cat .post2/patch.sha256)
+          actual=$(sha256sum "$RUNNER_TEMP/post2.patch" | awk '{print $1}')
+          test "$actual" = "$expected"
+          git apply --check "$RUNNER_TEMP/post2.patch"
+          git apply "$RUNNER_TEMP/post2.patch"
+          rm -rf .post2 .github/workflows/apply-post2.yml
+          git diff --check
+
+      - name: Install exact dependencies
+        run: npm ci
+
+      - name: Audit, lint, test, build, and execute the standalone artifact
+        env:
+          VITE_BASE_PATH: ./
+        run: |
+          set -euo pipefail
+          npm run audit:webmcp
+          npm run lint
+          npm test -- --reporter=verbose
+          npm run build
+          npm run build:standalone
+          npm run smoke:standalone
+          git diff --check
+
+      - name: Enforce release invariants and size budgets
+        run: |
+          set -euo pipefail
+          test "$(grep -Rhc '^[[:space:]]*it(' src --include='*.test.ts' --include='*.test.tsx' | awk '{s+=$1} END{print s}')" = '51'
+          test "$(grep -c 'expected_revision: expectedRevision' src/webmcp/protocol.ts)" = '7'
+          test "$(grep -c 'requireCurrentRevision(input, state)' src/webmcp/protocol.ts)" = '7'
+          grep -q "proposal.basedOnRevision !== state.revision" src/domain/reducer.ts
+          grep -q 'workspaceRevision: number' src/domain/types.ts
+          grep -q 'forkroom:canonical-model:v1' src/domain/integrity.ts
+          grep -q 'forkroom:review-workspace:v1' src/domain/integrity.ts
+          grep -q 'consequentialHint: false' src/webmcp/protocol.ts
+          grep -q 'workspace_revision_before' src/webmcp/protocol.ts
+          grep -q 'data-forkroom-bundle="javascript"' dist/standalone.html
+          js_bytes=$(find dist/assets -name '*.js' -printf '%s\n' | awk '{s+=$1} END{print s+0}')
+          css_bytes=$(find dist/assets -name '*.css' -printf '%s\n' | awk '{s+=$1} END{print s+0}')
+          standalone_bytes=$(stat -c '%s' dist/standalone.html)
+          test "$js_bytes" -le 400000
+          test "$css_bytes" -le 110000
+          test "$standalone_bytes" -le 650000
+          printf 'js=%s\ncss=%s\nstandalone=%s\n' "$js_bytes" "$css_bytes" "$standalone_bytes" | tee "$RUNNER_TEMP/size-budget.txt"
+
+      - name: Commit and publish verified source
+        id: source
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'release: ForkRoom v1.1.0-post.2 integrity hardening'
+          new_sha=$(git rev-parse HEAD)
+          git push origin HEAD:post-judging-v1.1.0-post.2
+          echo "sha=$new_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Publish verified static bytes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
+        run: |
+          set -euo pipefail
+          live_tree="$(mktemp -d)"
+          cp -a dist/. "$live_tree/"
+          printf '%s\n' "$SOURCE_SHA" > "$live_tree/SOURCE_COMMIT"
+          cat > "$live_tree/README.txt" <<TXT
+          ForkRoom v1.1.0-post.2 verified live build
+          Source commit: $SOURCE_SHA
+          Source: https://github.com/$GITHUB_REPOSITORY/tree/post-judging-v1.1.0-post.2
+          Verification: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
+          TXT
+          git -C "$live_tree" init -q -b "$LIVE_BRANCH"
+          git -C "$live_tree" config user.name 'github-actions[bot]'
+          git -C "$live_tree" config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git -C "$live_tree" add -A
+          git -C "$live_tree" commit -qm "deploy: ForkRoom post.2 from ${SOURCE_SHA}"
+          git -C "$live_tree" remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git -C "$live_tree" push --force origin "HEAD:refs/heads/$LIVE_BRANCH"
+
+      - name: Attempt first-party GitHub Pages enablement
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --method POST "repos/$GITHUB_REPOSITORY/pages" \
+            -f build_type=legacy \
+            -f "source[branch]=$LIVE_BRANCH" \
+            -f 'source[path]=/' > "$RUNNER_TEMP/pages-create.json"
+
+      - name: Verify public repository and rendered application links
+        env:
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
+        run: |
+          set -euo pipefail
+          repo_url="https://github.com/$GITHUB_REPOSITORY"
+          source_url="https://github.com/$GITHUB_REPOSITORY/tree/post-judging-v1.1.0-post.2"
+          rawgithack_url="https://raw.githack.com/$GITHUB_REPOSITORY/$LIVE_BRANCH/standalone.html"
+          htmlpreview_url="https://htmlpreview.github.io/?https://github.com/$GITHUB_REPOSITORY/blob/$LIVE_BRANCH/standalone.html"
+          pages_url="https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY#*/}/"
+
+          curl --fail --location --silent --show-error --retry 5 --retry-all-errors \
+            -A 'Mozilla/5.0 ForkRoom-Link-Health' "$repo_url" | grep -q 'ForkRoom'
+          curl --fail --location --silent --show-error --retry 5 --retry-all-errors \
+            -A 'Mozilla/5.0 ForkRoom-Link-Health' "$source_url" | grep -q 'ForkRoom'
+
+          browser=$(command -v google-chrome || command -v chromium || command -v chromium-browser)
+          preferred=''
+          for candidate in "$pages_url" "$rawgithack_url" "$htmlpreview_url"; do
+            echo "Probing $candidate"
+            for attempt in $(seq 1 18); do
+              if curl --fail --location --silent --show-error --max-time 30 \
+                -A 'Mozilla/5.0 ForkRoom-Link-Health' "$candidate" -o "$RUNNER_TEMP/candidate.html"; then
+                "$browser" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+                  --virtual-time-budget=8000 --dump-dom "$candidate" > "$RUNNER_TEMP/candidate-dom.html" 2>"$RUNNER_TEMP/browser.log" || true
+                if grep -q 'class="app-shell"' "$RUNNER_TEMP/candidate-dom.html" && grep -q 'ForkRoom' "$RUNNER_TEMP/candidate-dom.html"; then
+                  preferred="$candidate"
+                  break 2
+                fi
+              fi
+              sleep 10
+            done
+          done
+          test -n "$preferred"
+          printf '%s\n' "$preferred" > "$RUNNER_TEMP/preferred-live-url.txt"
+
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          temp = Path(os.environ['RUNNER_TEMP'])
+          report = {
+              'format': 'forkroom-link-health.v1',
+              'sourceCommit': os.environ['SOURCE_SHA'],
+              'repository': f"https://github.com/{os.environ['GITHUB_REPOSITORY']}",
+              'sourceBranch': f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/tree/post-judging-v1.1.0-post.2",
+              'liveBranch': f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/tree/{os.environ['LIVE_BRANCH']}",
+              'preferredLiveUrl': (temp / 'preferred-live-url.txt').read_text().strip(),
+              'checkedBy': f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}",
+              'result': 'pass',
+          }
+          (temp / 'LINK_HEALTH.json').write_text(json.dumps(report, indent=2) + '\n')
+          PY
+          cat "$RUNNER_TEMP/LINK_HEALTH.json"
+
+      - name: Assemble and independently verify release package
+        env:
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
+        run: |
+          set -euo pipefail
+          output="$RUNNER_TEMP/output"
+          bundle="$RUNNER_TEMP/$RELEASE_NAME"
+          mkdir -p "$output" "$bundle/source" "$bundle/build" "$bundle/evidence"
+          git archive --format=tar "$SOURCE_SHA" | tar -x -C "$bundle/source"
+          cp -a dist/. "$bundle/build/"
+          cp "$RUNNER_TEMP/LINK_HEALTH.json" "$bundle/evidence/"
+          cp "$RUNNER_TEMP/size-budget.txt" "$bundle/evidence/"
+          cat > "$bundle/MANIFEST.md" <<TXT
+          # ForkRoom v1.1.0-post.2
+
+          - Source commit: $SOURCE_SHA
+          - Source: https://github.com/$GITHUB_REPOSITORY/tree/post-judging-v1.1.0-post.2
+          - Live: $(cat "$RUNNER_TEMP/preferred-live-url.txt")
+          - Release: https://github.com/$GITHUB_REPOSITORY/releases/tag/$RELEASE_TAG
+          - Verification: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
+          - Tools: 16
+          - Tests: 51
+          - State schema: 2
+          TXT
+          (
+            cd "$bundle"
+            find . -type f ! -name SHA256SUMS.txt -print0 | LC_ALL=C sort -z | xargs -0 sha256sum > SHA256SUMS.txt
+          )
+          (
+            cd "$(dirname "$bundle")"
+            zip -X -q -r "$output/$RELEASE_NAME.zip" "$RELEASE_NAME"
+          )
+          (
+            cd "$output"
+            sha256sum "$RELEASE_NAME.zip" > "$RELEASE_NAME.zip.sha256"
+          )
+          verify="$(mktemp -d)"
+          cp "$output/$RELEASE_NAME.zip" "$output/$RELEASE_NAME.zip.sha256" "$verify/"
+          (
+            cd "$verify"
+            sha256sum --check "$RELEASE_NAME.zip.sha256"
+            unzip -q "$RELEASE_NAME.zip"
+            cd "$RELEASE_NAME"
+            sha256sum --check SHA256SUMS.txt
+            grep -q 'registerTool' build/standalone.html
+            grep -q '"result": "pass"' evidence/LINK_HEALTH.json
+          )
+          cp "$RUNNER_TEMP/LINK_HEALTH.json" "$output/LINK_HEALTH.json"
+          echo "OUTPUT=$output" >> "$GITHUB_ENV"
+
+      - name: Create immutable GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/release-notes.md" <<TXT
+          # ForkRoom v1.1.0-post.2
+
+          **Verified live application:** $(cat "$RUNNER_TEMP/preferred-live-url.txt")
+
+          Post.2 separates canonical model changes from review-ledger activity, rechecks freshness at human approval, adds domain-separated SHA-256 receipts and tamper-detecting snapshots, returns structured WebMCP results, and gates release creation on a real external browser probe.
+
+          Source: https://github.com/$GITHUB_REPOSITORY/tree/post-judging-v1.1.0-post.2
+          Verification: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
+          TXT
+          gh release create "$RELEASE_TAG" \
+            --target "$SOURCE_SHA" \
+            --title 'ForkRoom v1.1.0-post.2 — integrity and approval hardening' \
+            --notes-file "$RUNNER_TEMP/release-notes.md" \
+            "$OUTPUT/$RELEASE_NAME.zip" \
+            "$OUTPUT/$RELEASE_NAME.zip.sha256" \
+            "$OUTPUT/LINK_HEALTH.json"
+          curl --fail --location --silent --show-error --retry 5 --retry-all-errors \
+            -A 'Mozilla/5.0 ForkRoom-Link-Health' \
+            "https://github.com/$GITHUB_REPOSITORY/releases/tag/$RELEASE_TAG" | grep -q 'ForkRoom v1.1.0-post.2'
+
+      - name: Upload workflow evidence
+        uses: actions/upload-artifact@v6
+        with:
+          name: ForkRoom-v1.1.0-post.2-verified
+          path: |
+            ${{ env.OUTPUT }}/ForkRoom-v1.1.0-post.2.zip
+            ${{ env.OUTPUT }}/ForkRoom-v1.1.0-post.2.zip.sha256
+            ${{ env.OUTPUT }}/LINK_HEALTH.json
+          if-no-files-found: error
+          retention-days: 90
