@@ -1,0 +1,103 @@
+name: Bootstrap ForkRoom v1.1.0
+
+on:
+  push:
+    branches: [release-v1.1.0]
+    paths:
+      - release-bootstrap/**
+      - .github/workflows/bootstrap-v1.1.0.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: forkroom-v1.1.0-bootstrap
+  cancel-in-progress: true
+
+jobs:
+  bootstrap:
+    name: Apply checksum-bound patch and run every source gate
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out isolated release branch
+        uses: actions/checkout@v6
+        with:
+          ref: release-v1.1.0
+          fetch-depth: 0
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Reconstruct and verify source patch
+        run: |
+          set -euo pipefail
+          cat release-bootstrap/ForkRoom-v1.1.0.patch.xz.b64.part-* \
+            | base64 --decode \
+            | xz --decompress > /tmp/ForkRoom-v1.1.0.patch
+          printf '%s  %s\n' \
+            '6ad1b059478db4726e61f812fec58ca46e6e9cb385d0e2603340c6ca584e3454' \
+            '/tmp/ForkRoom-v1.1.0.patch' | sha256sum --check --strict
+          git apply --check /tmp/ForkRoom-v1.1.0.patch
+          git apply /tmp/ForkRoom-v1.1.0.patch
+          git diff --check
+
+      - name: Install exact dependencies
+        run: npm ci
+
+      - name: Audit WebMCP and authority invariants
+        run: node scripts/validate-webmcp.mjs
+
+      - name: Lint with zero warnings
+        run: npm run lint
+
+      - name: Run deterministic tests
+        run: |
+          set -euo pipefail
+          npm test -- --reporter=verbose
+          declared="$(grep -Rhc '^[[:space:]]*it(' src --include='*.test.ts' --include='*.test.tsx' | awk '{sum += $1} END {print sum}')"
+          test "$declared" = '41'
+          echo "Verified $declared deterministic tests."
+
+      - name: Build portable production application
+        env:
+          VITE_BASE_PATH: ./
+        run: npm run build
+
+      - name: Build and execute self-contained artifact
+        run: |
+          node scripts/build-standalone.mjs
+          node scripts/smoke-standalone.mjs
+          test -s dist/index.html
+          test -s dist/standalone.html
+          grep -q 'registerTool' dist/standalone.html
+          grep -q 'forkroom_inspect_decision' dist/standalone.html
+
+      - name: Verify migration and split-revision controls
+        run: |
+          set -euo pipefail
+          grep -q 'schemaVersion: 2' src/domain/types.ts
+          grep -q 'workspaceRevision' src/domain/types.ts
+          grep -q 'migrateDecisionState' src/domain/validation.ts
+          grep -q 'proposal.basedOnRevision !== state.revision' src/domain/reducer.ts
+          grep -q 'model_revision_before' src/webmcp/protocol.ts
+          grep -q 'workspace_revision_before' src/webmcp/protocol.ts
+          grep -q 'model_changed' src/webmcp/protocol.ts
+          grep -q 'workspace_changed' src/webmcp/protocol.ts
+          test "$(node -p "require('./package.json').version")" = '1.1.0'
+          git diff --check
+
+      - name: Commit only the verified product source
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git reset -- release-bootstrap .github/workflows/bootstrap-v1.1.0.yml
+          git diff --cached --check
+          test -n "$(git diff --cached --name-only)"
+          git commit -m 'feat: separate model authority from review workspace'
+          git push origin HEAD:release-v1.1.0
