@@ -39,12 +39,16 @@ jobs:
 
       - name: Reconstruct and verify the candidate patch
         run: |
-          set -euo pipefail
+          set -euxo pipefail
+          ls -l .post2
+          wc -c .post2/patch.xz.b64.part-*
           cat .post2/patch.xz.b64.part-* | base64 --decode | xz --decompress > "$RUNNER_TEMP/post2.patch"
           expected=$(cat .post2/patch.sha256)
           actual=$(sha256sum "$RUNNER_TEMP/post2.patch" | awk '{print $1}')
+          echo "expected=$expected actual=$actual"
+          wc -c "$RUNNER_TEMP/post2.patch"
           test "$actual" = "$expected"
-          git apply --check "$RUNNER_TEMP/post2.patch"
+          git apply --check --verbose "$RUNNER_TEMP/post2.patch"
           git apply "$RUNNER_TEMP/post2.patch"
           rm -rf .post2 .github/workflows/apply-post2.yml
           git diff --check
